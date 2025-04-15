@@ -1,0 +1,14 @@
+{
+  "name": "signoff",
+  "engineVersion": "v0.18.3",
+  "sdk": {
+    "source": "go"
+  },
+  "dependencies": [
+    {
+      "name": "wolfi",
+      "source": "github.com/dagger/dagger/modules/wolfi",
+      "pin": "54d369f257ff4b475bd142471e062603ac2381c6"
+    }
+  ]
+}
