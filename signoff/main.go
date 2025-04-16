@@ -191,6 +191,25 @@ func (m *Signoff) HasOpenedPR(ctx context.Context) (bool, error) {
 	return out != "", nil
 }
 
+// Open a pull request for the current branch
+func (m *Signoff) OpenPR(
+	ctx context.Context,
+	// fill with verbose information
+	// +optional
+	// +default=false
+	verbose bool,
+) (string, error) {
+	fill := "--fill"
+	if verbose {
+		fill = "--fill-verbose"
+	}
+	return m.WithGhExec([]string{
+		"pr",
+		"create",
+		fill,
+	}).Stdout(ctx)
+}
+
 // Exec any command
 func (m *Signoff) WithExec(args []string) *Signoff {
 	m.Container = m.Container.WithExec(args)
