@@ -205,7 +205,7 @@ func (m *Signoff) PullRequest(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	
+
 	out, err := m.WithGhExec([]string{
 		"api",
 		"repos/:owner/:repo/pulls",
@@ -291,11 +291,15 @@ func (m *Signoff) Stderr(ctx context.Context) (string, error) {
 
 // Get the default branch configured on the repository using gh API
 func (m *Signoff) DefaultBranch(ctx context.Context) (string, error) {
-	return m.WithGhExec([]string{
+	out, err := m.WithGhExec([]string{
 		"api",
 		"repos/:owner/:repo",
 		"--jq", ".default_branch",
 	}).Stdout(ctx)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(out), nil
 }
 
 func (m *Signoff) base() *dagger.Container {
