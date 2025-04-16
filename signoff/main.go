@@ -199,17 +199,22 @@ func (m *Signoff) WhoIs(ctx context.Context) (string, error) {
 	return strings.TrimSpace(out), nil
 }
 
-// Check if a pull request exists for the current branch
-func (m *Signoff) HasOpenedPR(ctx context.Context) (bool, error) {
+// Get the pull request url of the current branch (to the default branch) if any
+func (m *Signoff) PullRequest(ctx context.Context) (string, error) {
+	defaultBranch, err := m.DefaultBranch(ctx)
+	if err != nil {
+		return "", err
+	}
+	
 	out, err := m.WithGhExec([]string{
 		"api",
 		"repos/:owner/:repo/pulls",
-		"--jq", ".[] | select(.head.ref == .base.ref)",
+		"--jq", fmt.Sprintf(".[] | select(.state == \"open\") | select(.base.ref == \"%s\") | .html_url", defaultBranch),
 	}).Stdout(ctx)
 	if err != nil {
-		return false, err
+		return "", err
 	}
-	return out != "", nil
+	return strings.TrimSpace(out), nil
 }
 
 // Open a pull request for the current branch
