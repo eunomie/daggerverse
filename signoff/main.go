@@ -178,6 +178,19 @@ func (m *Signoff) Sha(ctx context.Context) (string, error) {
 	return m.WithGitExec([]string{"rev-parse", "HEAD"}).Stdout(ctx)
 }
 
+// Check if a pull request exists for the current branch
+func (m *Signoff) HasOpenedPR(ctx context.Context) (bool, error) {
+	out, err := m.WithGhExec([]string{
+		"api",
+		"repos/:owner/:repo/pulls",
+		"--jq", ".[] | select(.head.ref == .base.ref)",
+	}).Stdout(ctx)
+	if err != nil {
+		return false, err
+	}
+	return out != "", nil
+}
+
 // Exec any command
 func (m *Signoff) WithExec(args []string) *Signoff {
 	m.Container = m.Container.WithExec(args)
