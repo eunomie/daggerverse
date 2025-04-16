@@ -84,13 +84,18 @@ func (m *Signoff) Create(ctx context.Context) error {
 		return err
 	}
 
+	user, err := m.WhoIs(ctx)
+	if err != nil {
+		return err
+	}
+
 	out, err := m.WithGhExec([]string{
 		"api",
 		"--method", "POST",
 		"repos/:owner/:repo/statuses/" + sha,
 		"-f", "state=success",
 		"-f", "context=" + m.CheckName,
-		"-f", "description=\"${user} signed off\"",
+		"-f", fmt.Sprintf("description=\"%s signed off\"", user),
 	}).Out(ctx)
 
 	if err != nil {
@@ -176,7 +181,18 @@ func (m *Signoff) Uninstall(
 
 // Retrieve the commit SHA of the most recent commit.
 func (m *Signoff) Sha(ctx context.Context) (string, error) {
-	out, err:= m.WithGitExec([]string{"rev-parse", "HEAD"}).Stdout(ctx)
+	out, err := m.WithGitExec([]string{"rev-parse", "HEAD"}).Stdout(ctx)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(out), nil
+}
+
+// Get the username of the user who is currently authenticated
+func (m *Signoff) WhoIs(ctx context.Context) (string, error) {
+	out, err := m.WithGhExec([]string{
+		"api", "user", "--jq", ".login",
+	}).Out(ctx)
 	if err != nil {
 		return "", err
 	}
