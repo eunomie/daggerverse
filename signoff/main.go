@@ -9,6 +9,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"dagger/signoff/internal/dagger"
@@ -83,17 +84,17 @@ func (m *Signoff) Create(ctx context.Context) error {
 		return err
 	}
 
-	_, err = m.WithGhExec([]string{
+	out, err := m.WithGhExec([]string{
 		"api",
 		"--method", "POST",
 		"repos/:owner/:repo/statuses/" + sha,
 		"-f", "state=success",
 		"-f", "context=" + m.CheckName,
 		"-f", "description=\"${user} signed off\"",
-	}).ExitCode(ctx)
+	}).Out(ctx)
 
 	if err != nil {
-		return err
+		return fmt.Errorf("%s: %w", out, err)
 	}
 
 	fmt.Println("✓ Signed off on " + sha)
@@ -119,7 +120,7 @@ func (m *Signoff) Install(
 		return fmt.Errorf("could not install without a branch name")
 	}
 
-	_, err := m.WithGhExec([]string{
+	out, err := m.WithGhExec([]string{
 		"api",
 		fmt.Sprintf("/repos/:owner/:repo/branches/%s/protection", branch),
 		"--method", "PUT",
@@ -130,9 +131,9 @@ func (m *Signoff) Install(
 		"--field", "enforce_admins=null",
 		"--field", "required_pull_request_reviews=null",
 		"--field", "restrictions=null",
-	}).ExitCode(ctx)
+	}).Out(ctx)
 	if err != nil {
-		return fmt.Errorf("could not install signoff check %q to branch %q: %w", m.CheckName, branch, err)
+		return fmt.Errorf("could not install signoff check %q to branch %q: %w\n%s", m.CheckName, branch, err, out)
 	}
 
 	fmt.Printf("✓ GitHub %s branch now requires signoff on check %q", m.CheckName, branch)
@@ -159,13 +160,13 @@ func (m *Signoff) Uninstall(
 		return fmt.Errorf("could not uninstall without a branch name")
 	}
 
-	_, err := m.WithGhExec([]string{
+	out, err := m.WithGhExec([]string{
 		"api",
 		fmt.Sprintf("/repos/:owner/:repo/branches/%s/protection", branch),
 		"--method", "DELETE",
-	}).ExitCode(ctx)
+	}).Out(ctx)
 	if err != nil {
-		return fmt.Errorf("could not uninstall branch protection for branch %q: %w", branch, err)
+		return fmt.Errorf("could not uninstall branch protection for branch %q: %w\n%s", branch, err, out)
 	}
 
 	fmt.Printf("✓ GitHub %s branch no longer requires signoff", m.CheckName)
@@ -175,7 +176,11 @@ func (m *Signoff) Uninstall(
 
 // Retrieve the commit SHA of the most recent commit.
 func (m *Signoff) Sha(ctx context.Context) (string, error) {
-	return m.WithGitExec([]string{"rev-parse", "HEAD"}).Stdout(ctx)
+	out, err:= m.WithGitExec([]string{"rev-parse", "HEAD"}).Stdout(ctx)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(out), nil
 }
 
 // Check if a pull request exists for the current branch
@@ -207,12 +212,12 @@ func (m *Signoff) OpenPR(
 		"pr",
 		"create",
 		fill,
-	}).Stdout(ctx)
+	}).Out(ctx)
 }
 
 // Exec any command
 func (m *Signoff) WithExec(args []string) *Signoff {
-	m.Container = m.Container.WithExec(args)
+	m.Container = m.Container.WithExec(args, dagger.ContainerWithExecOpts{Expect: dagger.ReturnTypeAny})
 	return m
 }
 
@@ -229,6 +234,26 @@ func (m *Signoff) WithGhExec(args []string) *Signoff {
 // Open an interactive terminal into the container with git and gh tools
 func (m *Signoff) Terminal() *dagger.Container {
 	return m.Container.Terminal()
+}
+
+func (m *Signoff) Out(ctx context.Context) (string, error) {
+	stdOut, err := m.Container.Stdout(ctx)
+	if err != nil {
+		return "", err
+	}
+	stdErr, err := m.Container.Stderr(ctx)
+	if err != nil {
+		return "", err
+	}
+	out := stdOut + "\n" + stdErr
+	exitCode, err := m.Container.ExitCode(ctx)
+	if err != nil {
+		return "", err
+	}
+	if exitCode != 0 {
+		return out, fmt.Errorf("exit code %d", exitCode)
+	}
+	return out, nil
 }
 
 func (m *Signoff) Stdout(ctx context.Context) (string, error) {
