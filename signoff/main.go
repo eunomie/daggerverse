@@ -1,7 +1,7 @@
 // This module provides tools to allow to signoff commits
 // from the developer machine. THis helps to reduce CI time
 // by moving the CI back to the developer's machine.
-// This modules requires a GitHub token to access the different
+// This module requires a GitHub token to access the different
 // GitHub APIs.
 
 package main
