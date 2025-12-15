@@ -1,0 +1,7 @@
+{
+  "name": "java-module",
+  "engineVersion": "v0.19.8",
+  "sdk": {
+    "source": "java"
+  }
+}
